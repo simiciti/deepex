@@ -12,13 +12,13 @@ import numpy as np
 from myconfig import bodyparts, center_of_mass
 from myconfig_analysis import videofolder
 
-
+'''
 def leg_pair_eval(parts , i):
-    '''
+    
     Determine approximate center of mass position using the
     position of a pair of legs (either front or rear)
     Determines orientation using head, ears ,or tail
-    '''
+
 
     lx = parts['ul_paw'][i][0]
     ly = parts['ul_paw'][i][1]
@@ -51,15 +51,49 @@ def leg_pair_eval(parts , i):
         refy = parts[reference][i][1]
 
         sign = np.sign((rx - lx) * (refy - ly) - (ry - ly) * (refx - lx))
+'''
+def angle_clamp(theta):
+    '''
+    Ensures theta is between 0 and 2π in value.
+    '''
+    if theta < 0:
+        return theta + 2 * np.pi
+    elif theta > 2 * np.pi:
+        return theta - 2 * np.pi
+    else:
+        return theta
 
-def compute_theta(p1x,p1y,p2x,p2y):
+def compute_theta(p1x,p1y,p2x,p2y, cw=False, theta_ref=(np.pi/2)):
     '''
-    Computes angle between two points using
-    arctangent of slope. Onus is on user to check
-    for zero-division cases
+    Computes angle between two points p1 and p2, which are tuples of
+    form (x,y).
+    p1 should be the point furthest along the direction of the line segment.
+    For example, the line connecting the center of the head to the nose
+    is parallel to the head orientation, but the nose is further in
+    that direction, so it would be p1 and the center of the head would
+    be p2.
+
+    cw (short for clockwise) is a boolean describing whether to proceed
+    in a clockwise(p1 furthest in given direction) or counterclockwise
+    (p2 furthest in given direction) manner. The center of head- left ear
+    line would be cw=False, while the center of head-right ear line would
+    be cw=True.
+
+    theta_ref is a reference angle. It is used when the points provided
+    define a line oriented at some angle theta_ref (clockwise
+    if y axis points upwards, counterclockwise if y axis points downward)
+    to the line whose angle theta is being calculated.
+    
+    For direct slope (or equivalent when slope is undefined),
+    use the default values for cw and theta_ref.
     '''
-    slope = (p2y - p1y) / (p2x - p1y)
-    return np.arctan(slope)
+    try:
+        slope = (p2y - p1y) / (p2x - p1x)
+        sign = 1 - 2 * (cw == (p2x > p1x)
+        return angle_clamp(sign * (np.pi / 2) + np.arctan(slope) + theta_ref)
+    # slope points vertical
+    except ZeroDivisionError:
+        return angle_clamp((cw == (p2y < p1y)) * np.pi + theta_ref)
     
         
 
@@ -67,9 +101,7 @@ def compute_distance(p1,p2):
     '''
     For specific case where p1 and p2 are tuples of (x,y)
     '''
-    return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1]))
-        
-#strongly request that center of mass
+    return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 def calc_trajectory(parts):
     '''
@@ -86,18 +118,19 @@ def calc_trajectory(parts):
         port - left ear 
         port - right ear 
         linear interpolation
-        
+
+    Orientation is in radians
 
     
     '''
+    
     frames = len(parts[bodyparts[0]]) # len shouldn't differ
     position = [(0,0)] * frames
-    bearing = [0] * frames
+    bearing = [-100] * frames
     head_parts = ['port', 'nose','l_ear','r_ear']
 
     unsolved_pos = []
     unsolved_bearing = []
-    
     for i in range(frames):
         posx = []
         posy = []
@@ -108,9 +141,7 @@ def calc_trajectory(parts):
         if len(posx):
             position[i] = (np.mean(posx), np.mean(posy))
         else:
-            unsolved_pos.append(i)
-
- 
+            unsolved_pos.append(i) 
                 
         portx = parts['port'][i][0] * (parts['port'][i][0] > 0)
         porty = parts['port'][i][1] 
@@ -119,51 +150,52 @@ def calc_trajectory(parts):
         nosey = parts['nose'][i][1]
 
         learx = parts['l_ear'][i][0] * (parts['l_ear'][i][0] > 0)
-        leary = parts['r_ear'][i][1]
+        leary = parts['l_ear'][i][1]
 
         rearx = parts['r_ear'][i][0] * (parts['r_ear'][i][0] > 0)
         reary = parts['r_ear'][i][1]
 
-        slopes = []
 
-        left_ear_theta = -0.4424
+        left_ref = -0.4424
         '''
+        Left reference angle 
         more precision: -0.44241058216837614
         Computed by averaging location of left ear
         at indices 30 and 35 in /183856c/l_ear.csv.
         The mouse in these frames was facing near-vertical
         '''
-        right_ear_theta = 0.6872
+        r_ref = 0.6872
         '''
+        Right reference angle
         more precision: 0.6871831742241893
         Computed by averaging location of right ear
         at indices 30 and 35 in /183856c/r_ear.csv.
         The mouse in these frames was facing near-vertical
         '''
-        #handle slope 
+
+        #handle bearing
         if portx and nosex:
             try:
-                slope = (porty - nosey) / (portx - nosex)
-            except ZeroDivisionError:
-                slope = 1e5
-            bearing[i] = np.arctan(slope)
+                # get direct angle
+                bearing[i] = calculate_theta(nosex, nosey, portx, porty)
         elif learx and rearx:
             try:
-                slope = (reary - leary) / (rearx - learx)
-            except ZeroDivisionError:
-                slope = 1e5
-            bearing[i] = np.arctan(-1 / slope)
+                # get angle of orthogonal line 
+                ortho = calculate_theta(learx, leary, rearx, reary)
+                # convert to actual orientation 
+                bearing[i] = angle_clamp(ortho + np.pi / 2)
         elif learx and portx:
-            raw_theta = compute_theta(learx,leary,portx,porty)
-            bearing[i] = left_ear_theta - raw_theta - np.pi / 2 
+            # cw = False as left ear is counterclockwise from orientation
+            bearing[i] = compute_theta(learx,leary,portx,porty, False,l_ref)
         elif rearx and portx:
-            raw_theta = compute_theta(rearx,reary,portx,porty)
-            bearing[i] = right_ear_theta - raw_theta - np.pi / 2 
+                        
+            bearing[i] = compute_theta(rearx,reary,portx,porty, True, r_ref)
         else:
             unsolved_bearing.append(i)
-            continue
+            
     interpolate_missing(position, unsolved_pos)
     interpolate_missing(bearing, unsolved_bearing)
+    
     return position, bearing
            
             
@@ -182,7 +214,7 @@ def get_not_missing(start, missing_lst, sign, lstlen):
             value += sign
         else:
             break
-    return not_missing
+    return value
     
 def interpolate_missing(lst, indices):
     '''
@@ -224,13 +256,21 @@ def interpolate_missing(lst, indices):
         r_threshold_val = lst[rthreshold]
         near_threshold_val = lst[near_threshold]
         
-        # this is assuming no boundary condition
-        delta = r_threshold_val - l_threshold_val
-        
+        # tuples are handled separately
         fraction = (index - near_threshold) / (rthreshold - lthreshold)
-        itp_value = near_threshold_val + fraction * delta
+        if isinstance(l_threshold_val, tuple):
+            delta = tuple(np.subtract(r_threshold_val, l_threshold_val))
+        
+            
+            adj_delta = tuple(np.multiply(fraction, delta))
+            itp_value = tuple(np.add(near_threshold_val, adj_delta))
+        else:
+            #it is a float or int
+            delta = r_threshold_val - l_threshold_val
+            itp_value = near_threshold_val + fraction * delta
+            
         lst[index] = itp_value
-        indices.pop(index)
+        indices.remove(index) # wait, pop value rather than index
 
 
 def load_parts():
@@ -271,14 +311,49 @@ else:
     for vid in videos:
         os.chdir(vid)
         parts = load_parts()
+        
+        print('Calculating trajectory for', vid)
+    
+        poslnk = vid + '_position.csv'
+        bearlnk = vid + '_bearing.csv'
+
+        if (os.path.isfile(poslnk)):
+            print('Position file already exists at ' + poslnk + '. Skipping')
+            os.chdir('..')
+            continue
+        if (os.path.isfile(bearlnk)):
+            print('Bearings file already exists at ' + bearlnk + '. Skipping')
+            os.chdir('..')
+            continue
+        
+
         position, bearing = calc_trajectory(parts)
 
-        # Output to file 
-        with open(vid + '_position.csv') as f:
-            for pos in position:
-                f.write(pos + '\n')
+        print('Validating positions...')
+        # Check if unsolved indices exist
+        if len([v for v in position if not v[0]]):
+            checkfail = input('Position Validation failed. Exit? Y/n')
+            if checkfail.lower() == 'y':
+                exit()
 
-        with open(vid + '_bearing.csv') as f:
+        print('Validating bearings...')
+        # Check if unsolved indices exist
+        if len([v for v in bearing if v < -20]):
+            checkfail = input('Bearing Validation failed. Exit? Y/n')
+            if checkfail.lower() == 'y':
+                exit()
+                
+        # Output to file
+        poslnk = vid + '_position.csv'
+        with open(poslnk, 'w') as f:
+            for pos in position:
+                f.write(str(pos[0])+ ',' + str(pos[1]) + '\n')
+            print('Position data serialized to ' + poslnk)
+
+        
+        with open(bearlnk, 'w') as f:
             for bear in bearing:
-                f.write(bearing + '\n')
+                f.write(str(bear) + '\n')
+            print('Bearing data serialized to ' + bearlnk)
+        os.chdir('..')
     
