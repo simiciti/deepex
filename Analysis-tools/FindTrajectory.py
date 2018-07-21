@@ -89,7 +89,7 @@ def compute_theta(p1x,p1y,p2x,p2y, cw=False, theta_ref=(np.pi/2)):
     '''
     try:
         slope = (p2y - p1y) / (p2x - p1x)
-        sign = 1 - 2 * (cw == (p2x > p1x)
+        sign = 1 - 2 * (cw == (p2x > p1x))
         return angle_clamp(sign * (np.pi / 2) + np.arctan(slope) + theta_ref)
     # slope points vertical
     except ZeroDivisionError:
@@ -156,18 +156,18 @@ def calc_trajectory(parts):
         reary = parts['r_ear'][i][1]
 
 
-        left_ref = -0.4424
+        l_ref = 3.3657
         '''
         Left reference angle 
-        more precision: -0.44241058216837614
+        more precision: 3.365715279788638 #just for reference, don't use
         Computed by averaging location of left ear
         at indices 30 and 35 in /183856c/l_ear.csv.
         The mouse in these frames was facing near-vertical
         '''
-        r_ref = 0.6872
+        r_ref = 2.6239
         '''
         Right reference angle
-        more precision: 0.6871831742241893
+        more precision: 2.6238766262729953 #just for reference, don't use
         Computed by averaging location of right ear
         at indices 30 and 35 in /183856c/r_ear.csv.
         The mouse in these frames was facing near-vertical
@@ -175,15 +175,13 @@ def calc_trajectory(parts):
 
         #handle bearing
         if portx and nosex:
-            try:
-                # get direct angle
-                bearing[i] = calculate_theta(nosex, nosey, portx, porty)
+            # get direct angle
+            bearing[i] = compute_theta(nosex, nosey, portx, porty)
         elif learx and rearx:
-            try:
-                # get angle of orthogonal line 
-                ortho = calculate_theta(learx, leary, rearx, reary)
-                # convert to actual orientation 
-                bearing[i] = angle_clamp(ortho + np.pi / 2)
+            # get angle of orthogonal line 
+            ortho = compute_theta(learx, leary, rearx, reary)
+            # convert to actual orientation 
+            bearing[i] = angle_clamp(ortho + np.pi / 2)
         elif learx and portx:
             # cw = False as left ear is counterclockwise from orientation
             bearing[i] = compute_theta(learx,leary,portx,porty, False,l_ref)
@@ -194,7 +192,7 @@ def calc_trajectory(parts):
             unsolved_bearing.append(i)
             
     interpolate_missing(position, unsolved_pos)
-    interpolate_missing(bearing, unsolved_bearing)
+    #interpolate_missing(bearing, unsolved_bearing)
     
     return position, bearing
            

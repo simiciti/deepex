@@ -19,7 +19,7 @@ for c in csv:
         count = 0
         for line in lines:
             try:
-                if int(line[0]):
+                if not int(line[0]):
                     count += 1
             except ValueError:
                 print(line)

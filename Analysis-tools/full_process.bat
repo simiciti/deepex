@@ -1,4 +1,3 @@
-./AnalyzeVideos.py
-./MakingLabeledVideo.py
-./Extraction.py
-./FindTrajectory.py
+.\AnalyzeVideos.py
+.\MakingLabeledVideo.py
+.\Extraction.py

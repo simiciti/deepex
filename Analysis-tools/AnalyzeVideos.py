@@ -115,7 +115,7 @@ pdindex = pd.MultiIndex.from_product(
 frame_buffer = 10
 
 os.chdir(videofolder)
-videos = np.sort([fn for fn in os.listdir(os.curdir) if (videotype in fn)])
+videos = np.sort([fn for fn in os.listdir(os.curdir) if (videotype in fn)and 'labeled' not in fn])
 print("Starting ", videofolder, videos)
 for video in videos:
     dataname = video.split('.')[0] + scorer + '.h5'
