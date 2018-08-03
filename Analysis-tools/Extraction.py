@@ -13,7 +13,7 @@ sys.path.append(subfolder + "/Generating_a_Training_Set")
 import auxiliaryfunctions
 import io
 
-from moviepy.editor import VideoFileClip
+#from moviepy.editor import VideoFileClip
 from myconfig_analysis import videofolder, pcutoff, videotype, resnet, \
      Task, date, shuffle, trainingsiterations
 from tqdm import tqdm
@@ -24,7 +24,7 @@ scorer = 'DeepCut' + "_resnet" + str(resnet) + "_" + Task + str(date) + 'shuffle
 
 
 
-def ExtractPositions(clip, dataframe, folder=True):
+def ExtractPositions(dataframe, folder=True):
     '''
     Extracts body part positions to labeled files
     if folder is true, a new folder named for the file is created
@@ -39,8 +39,8 @@ def ExtractPositions(clip, dataframe, folder=True):
     for bodypart in bodyparts:
         print('extracting ' + bodypart)
         if folder:
-            auxiliaryfunctions.attempttomakefolder(vname)
-            file = open(vname + '/' + bodypart + '.csv','w')
+            auxiliaryfunctions.attempttomakefolder(vname + '_extract')
+            file = open(vname + '_extract/' + bodypart + '.csv','w')
         else:
             file = open(vname +  '_' + bodypart + '.csv', 'w')
         for index in tqdm(range(nframes)):
@@ -67,6 +67,10 @@ videos = np.sort([fn for fn in os.listdir(os.curdir) if (videotype in fn) and ("
 print("Starting ", videofolder, videos)
 for video in videos:
     vname = video.split('.')[0]
+    if os.path.isdir(vname + '_extract'):
+        if len(glob.glob(vname + '_extract/*.csv')):
+            print(vname + ' data already extracted. Skipping.')
+            continue
     print("Loading ", video, "and data.")
     dataname = video.split('.')[0] + scorer + '.h5'
     try: # to load data for this video + scorer
@@ -84,8 +88,8 @@ for video in videos:
             print("Extracting from:", datanames[0]," instead.")
 
             Dataframe = pd.read_hdf(datanames[0])
-            clip = VideoFileClip(video)
-            ExtractPositions(clip,Dataframe)
+            #clip = VideoFileClip(video)
+            ExtractPositions(Dataframe)
             
 
                         

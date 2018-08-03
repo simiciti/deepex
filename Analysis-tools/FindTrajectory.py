@@ -12,6 +12,7 @@ import numpy as np
 from myconfig import bodyparts, center_of_mass
 from myconfig_analysis import videofolder
 
+from tqdm import tqdm
 '''
 def leg_pair_eval(parts , i):
     
@@ -103,7 +104,7 @@ def compute_distance(p1,p2):
     '''
     return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
-def calc_trajectory(parts):
+def calc_trajectory(parts,do_ear_port = False):
     '''
     Calculates trajectory of head by averaging extant
     values for parts of the head 
@@ -121,7 +122,10 @@ def calc_trajectory(parts):
 
     Orientation is in radians
 
-    
+    do_ear_port allows attempts to determine orientation using
+    the port and one ear. As this distance is not necessarily constant
+    in the photograph (and the reference angle varies), it really
+    shouldn't be used.
     '''
     
     frames = len(parts[bodyparts[0]]) # len shouldn't differ
@@ -131,7 +135,7 @@ def calc_trajectory(parts):
 
     unsolved_pos = []
     unsolved_bearing = []
-    for i in range(frames):
+    for i in tqdm(range(frames)):
         posx = []
         posy = []
         for part in head_parts:
@@ -182,17 +186,19 @@ def calc_trajectory(parts):
             ortho = compute_theta(learx, leary, rearx, reary)
             # convert to actual orientation 
             bearing[i] = angle_clamp(ortho + np.pi / 2)
-        elif learx and portx:
+        elif learx and portx and do_ear_port:
             # cw = False as left ear is counterclockwise from orientation
             bearing[i] = compute_theta(learx,leary,portx,porty, False,l_ref)
-        elif rearx and portx:
+        elif rearx and portx and do_ear_port:
                         
             bearing[i] = compute_theta(rearx,reary,portx,porty, True, r_ref)
         else:
             unsolved_bearing.append(i)
             
+    print('Unsolved position fraction:', len(unsolved_pos) / len(position))
+    print('Unsolved bearing fraction:', len(unsolved_bearing) / len(bearing))
     interpolate_missing(position, unsolved_pos)
-    #interpolate_missing(bearing, unsolved_bearing)
+    interpolate_missing(bearing, unsolved_bearing)
     
     return position, bearing
            
@@ -296,11 +302,11 @@ def load_parts():
     
 dirs = []
 os.chdir(videofolder)
-videos = np.sort([fn for fn in os.listdir(os.curdir) if os.path.isdir(fn) and "temp" not in fn])
+videos = np.sort([fn for fn in os.listdir(os.curdir) if os.path.isdir(fn) and "_extract" in fn])
 
 if not len(videos):
     sys.popen('.\Extraction.py')
-    videos = np.sort([fn for fn in os.listdir(os.curdir) if os.path.isdir(fn) and "temp" not in fn])
+    videos = np.sort([fn for fn in os.listdir(os.curdir) if os.path.isdir(fn) and "_extract" in fn])
 
 if not len(videos):
     print('Sorry, no subdirectories were found. Please recheck Extraction.py')
@@ -312,8 +318,8 @@ else:
         
         print('Calculating trajectory for', vid)
     
-        poslnk = vid + '_position.csv'
-        bearlnk = vid + '_bearing.csv'
+        poslnk = vid[:-8] + '_position.csv'
+        bearlnk = vid[:-8] + '_bearing.csv'
 
         if (os.path.isfile(poslnk)):
             print('Position file already exists at ' + poslnk + '. Skipping')
@@ -342,7 +348,6 @@ else:
                 exit()
                 
         # Output to file
-        poslnk = vid + '_position.csv'
         with open(poslnk, 'w') as f:
             for pos in position:
                 f.write(str(pos[0])+ ',' + str(pos[1]) + '\n')
