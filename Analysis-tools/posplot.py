@@ -19,6 +19,9 @@ from tqdm import tqdm
 from myconfig import bodyparts, center_of_mass
 from myconfig_analysis import videofolder
 
+
+import seaborn as sns
+
 def distance(x1, y1, x2, y2):
     '''
     Distance betweeen 2 points.
@@ -123,8 +126,10 @@ def read_data(folder):
 
     return np.asarray(position), np.asarray(bearing)
     
+
+
     
-def data_to_heatmap(pos, folder):
+def heatmap(pos, folder, imname='', export=True, save=True):
     '''
     Converts trajectory data to pixel-based heatmap
     agnostic of whether stimulus was present or mouse was activated.
@@ -142,36 +147,146 @@ def data_to_heatmap(pos, folder):
     #placeholder value - set cell to 1 if the mouse was at it
     increment = 1
     for i in tqdm(range(len(pos))):
-        cells[int(pos[i][0])][int(pos[i][1])] = increment
+        cells[int(pos[i][0])][int(pos[i][1])] += increment
     
     fig, ax = plt.subplots()
 
     #transpose because it inverts the display (but not the actual graph)
     im = ax.imshow(cells.T, cmap='Y1Gn')
     cbar = ax.figure.colorbar(im,ax=ax,cmap='YlGn')
-    
-    plt.savefig(folder + '_heatmap.png')
 
-def distance_to_origin(pos, folder, fps=30):
+    if not export:
+        plt.title(imname)
+
+    if save:
+        plt.savefig(folder + '/' + imname + '_heatmap.png')
+    if export:
+        return im #I think that's correct
+
+
+def segmented(pos, function, folder, seg, imname='', labels=None):
     '''
-    Graphs distance to origin as a function of time elapsed
+    Provides an easy interface for segmenting the position data and
+    applying any properly parameterized function to the data.
     '''
 
-    # Get the distance from the origin at each frame
-    distances = distance(0, 0, pos[:,0], pos[:,1])
-    
-    frames = np.arange(len(pos))
+    for i in range(1, len(seg)):
+        cur = seg[i]
+        lo = seg[(i - 1) * (( i - 1) > 0)] * ((i - 1) > 0)
 
-    fig, ax = plt.subplots()
-
-    im = ax.imshow([distances,frames])
-    plt.savefig(folder + '_origin.png')
-
+        epoch = pos[lo: cur]
+        lbl = labels[i - 1] if labels else ''
+        
+        function(epoch, folder, lo + '-' + cur + ' ' + lbl)
     
 
+'''    
+def data_to_heatmap_seg(pos, folder, seg, labels=None):
+    \'''
+    Creates heatmaps of mouse position segmented by epoch boundaries
+    contained in list seg. Saves heatmaps to folders. labels is an optional
+    list of labels for the epochs. 
+    \'''
+
     
+    for i in range(1, len(seg)):
+        cur = seg[i]
+        lo = seg[(i - 1) * (( i - 1) > 0)] * ((i - 1) > 0)
+
+        epoch = pos[lo: cur]
+        lbl = labels[i - 1] if labels else ''
+        
+        data_to_heatmap(epoch, folder, lo + '-' + cur + ' ' + lbl)
+  '''      
+
+    
+def plot_trajectory(pos, folder, name='', adj_name='',export=True,save=True):
+    '''
+    Be a right-sider. Connect the cases.
+    opacity: 0.2
+    
+    '''
+    [xlim, ylim] = np.nanmax(pos, axis=0)
+    xlim, ylim = int(xlim) + 20, int(ylim) + 20
+
+    opacity = 0.2
+    
+    plotted = plt.plot(pos[:,0],pos[:,1], alpha=opacity)
+
+    if not export:
+        plt.title(name)
+        plt.xlim(0, xlim)
+        plt.ylim(0, ylim)
+        plt.xlabel('pixels')
+        plt.ylabel('pixels')
+
+    file = adj_name if adj_name else name
+    if save:
+        plt.savefig(folder + '/' + file + '_traj.png')
+    if export:
+        return plotted
+
+#def plot_trajectory_seg():
+#    return None 
+    
+def kde(pos, folder, name='', export=True, save=True):
+    '''
+    Plots a kernel density estimate for the position data
+    '''
+
+    [xlim, ylim] = np.nanmax(pos, axis=0)
+    xlim, ylim = int(xlim) + 20, int(ylim) + 20
+    
+    #create cubehelix colormap
+    cmap = sns.cubehelix_palette(start=3, light=1, as_cmap=True)
+
+    #actual plot
+    s = sns.kdeplot(pos[:,0], pos[:,1], cmap=cmap, shade=True)
 
 
+    if not export:
+        #data 
+        plt.title(name)
+        plt.xlim(0, xlim)
+        plt.ylim(0, ylim)
+        plt.xlabel('pixels')
+        plt.ylabel('pixels')
+
+    if save:
+        plt.savefig(folder + '/' + name + '_kde.png')
+    if export:
+        return s
+    
+def multiplot(pos, name):
+    '''
+    Plots multiple representations of position data for a single experiment
+    '''
+
+    [xlim, ylim] = np.nanmax(pos, axis=0)
+    xlim, ylim = int(xlim) + 20, int(ylim) + 20
+    
+    f, axes = plt.subplots(3,1, figsize=(9,9), sharex=True, sharey=True)
+
+    functions = [heatmap, kde, plot_trajectory]
+
+    #create grid of subplots 
+    for ax, s in zip(axes.flat, np.linspace(0,3,3)):
+        functions[s](pos, name)
+        ax.set(xlim=(0,xlim), ylim=(0,ylim))
+
+    plt.title(name)
+    f.tight_layout
+
+        
+
+
+
+#def kde_seg():
+#    return None 
+
+
+
+#depreciated
 def bearing_sunspot(bearing, title):
     '''
     convert to int
@@ -179,7 +294,7 @@ def bearing_sunspot(bearing, title):
     create 1deg arc at base radius
     create 1deg arc scaled radius
     add labels at k* n.pi / 4
-    
+    retrospect: not helpful 
     '''
 
     buckets = np.zeros((360,1))
