@@ -1,0 +1,16 @@
+#mouse IR webcam corrected_IR 
+629R 0539 - 1257 - 0448
+628N 0245 - 0702 - 0204
+593R 0294 - 0914 - 0245
+592N 0312 - 0643 - 0257
+304L 5175 - 6505 - 4885
+#303R 0530 - 1049 - 
+303R 0000 - 0763 - 0226
+
+
+#key 
+#s - sign disappears fully frame 
+#m - spot moves 
+#d - spot disappears 
+#a - spot appears  
+
