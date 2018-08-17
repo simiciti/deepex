@@ -62,9 +62,10 @@ def load_segmentation():
                         segments.append(int(line.split(' ')[1]))
 
                 #remove the stimulus appearance frame
-                labels.pop(0)
-                segments.pop(0)
-            
+                #labels.pop(0)
+                #segments.pop(0)
+                labels[0] = lbl_decode('d')
+                segments[0] = 0
             #add to dictionary
             segmentations[fol] = {}
             segmentations[fol]['segments'] = segments
@@ -92,14 +93,14 @@ def perform_correspondence(corrfile):
     corrs = []
     try:
         with open(corrfile) as f:
-            for line in f.readlines:
+            for line in f.readlines():
                 if len(line) == 1:
                     continue
                 if line[0] == '#': #commented out lines
                     continue
                 parsed = line.split(' ')
                 #append [experiment, webcam frame, IR camera frame]
-                corrs.append((parsed[0],int(parsed[2]) - int(parsed[3])))
+                corrs.append((parsed[0],int(parsed[3]) - int(parsed[5])))
     except FileNotFoundError:
         print('correspondence file invalid. Exiting')
         exit()
@@ -112,7 +113,7 @@ def perform_correspondence(corrfile):
 
     #convert the webcam frame to the IR camera frame using the correspondence
     for corr in corrs:
-        for i in range(len(segs[corr[0]]['segments'])):
+        for i in range(1, len(segs[corr[0]]['segments'])):
             segs[corr[0]]['segments'][i] -= corr[1]
 
     return segs 

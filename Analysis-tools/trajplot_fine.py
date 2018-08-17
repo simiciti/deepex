@@ -1,4 +1,5 @@
 from posplot import *
+from optogenetic_helper import *
 if __name__ == '__main__':
     dirs = []
     os.chdir(videofolder)
@@ -12,13 +13,18 @@ if __name__ == '__main__':
         print('Sorry, no position/orientation files were found')
         exit()
     else:
+        segments = perform_correspondence('../p2p/camera correspondence.txt')
         for video in videos:
             os.chdir(video)
             vid = video[:-8]
-            print('Calculating coarse trajectory for', vid)
+            print('Calculating fine trajectory for', vid)
 
             pos, theta = read_data(video)
-            multiplot(pos, '', vid,save=True,display=False)
+            segmented(pos, multiplot, '', segments[vid]['segments'], vid,
+                      segments[vid]['labels'], aggregate=True, verbose=True,
+                      save=True, display=False)
+            
+            #multiplot(pos, '', vid,save=True,display=False)
             
             os.chdir('..')
     
