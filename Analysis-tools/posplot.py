@@ -12,6 +12,8 @@ sys.path.append(subfolder)
 sys.path.append(subfolder + "/pose-tensorflow/")
 sys.path.append(subfolder + "/Generating_a_Training_Set")
 
+import auxiliaryfunctions
+
 import numpy as np
 
 from tqdm import tqdm
@@ -126,10 +128,8 @@ def read_data(folder):
 
     return np.asarray(position), np.asarray(bearing)
     
-
-
     
-def heatmap(pos, folder, imname='', export=True, save=True):
+def heatmap(pos, folder, imname='', save=True, **kw):
     '''
     Converts trajectory data to pixel-based heatmap
     agnostic of whether stimulus was present or mouse was activated.
@@ -146,25 +146,24 @@ def heatmap(pos, folder, imname='', export=True, save=True):
 
     #placeholder value - set cell to 1 if the mouse was at it
     increment = 1
-    for i in tqdm(range(len(pos))):
+    for i in range(len(pos)):
         cells[int(pos[i][0])][int(pos[i][1])] += increment
     
-    fig, ax = plt.subplots()
-
+    ax = kw.get('ax')
     #transpose because it inverts the display (but not the actual graph)
-    im = ax.imshow(cells.T, cmap='Y1Gn')
+    im = ax.imshow(cells.T, cmap='YlGn')
     cbar = ax.figure.colorbar(im,ax=ax,cmap='YlGn')
 
-    if not export:
-        plt.title(imname)
 
+    plt.xlim(0, xlim)
+    plt.ylim(0, ylim)
+    plt.xlabel('pixels')
+    plt.ylabel('pixels')
+    
     if save:
         plt.savefig(folder + '/' + imname + '_heatmap.png')
-    if export:
-        return im #I think that's correct
 
-
-def segmented(pos, function, folder, seg, imname='', labels=None):
+def segmented(pos, function, folder, seg, imname='', labels=None, **kw):
     '''
     Provides an easy interface for segmenting the position data and
     applying any properly parameterized function to the data.
@@ -177,7 +176,7 @@ def segmented(pos, function, folder, seg, imname='', labels=None):
         epoch = pos[lo: cur]
         lbl = labels[i - 1] if labels else ''
         
-        function(epoch, folder, lo + '-' + cur + ' ' + lbl)
+        function(epoch, folder, lo + '-' + cur + ' ' + lbl, kw)
     
 
 '''    
@@ -200,7 +199,7 @@ def data_to_heatmap_seg(pos, folder, seg, labels=None):
   '''      
 
     
-def plot_trajectory(pos, folder, name='', adj_name='',export=True,save=True):
+def plot_trajectory(pos, folder, name='', save=True, **kw):
     '''
     Be a right-sider. Connect the cases.
     opacity: 0.2
@@ -211,25 +210,27 @@ def plot_trajectory(pos, folder, name='', adj_name='',export=True,save=True):
 
     opacity = 0.2
     
-    plotted = plt.plot(pos[:,0],pos[:,1], alpha=opacity)
-
-    if not export:
-        plt.title(name)
-        plt.xlim(0, xlim)
-        plt.ylim(0, ylim)
-        plt.xlabel('pixels')
-        plt.ylabel('pixels')
-
-    file = adj_name if adj_name else name
+    if kw['index']:
+        index = kw['index']
+        #plt.subplot(131)
+        plt.subplot(index[0],index[1],index[2])
+        plotted = plt.plot(pos[:,0],pos[:,1], alpha=opacity, linewidth=1)
+        
+    else:
+        plotted = plt.plot(pos[:,0],pos[:,1], alpha=opacity)
+    
+    plt.xlim(0, xlim)
+    plt.ylim(0, ylim)
+    plt.xlabel('pixels')
+    plt.ylabel('pixels')
+        
     if save:
-        plt.savefig(folder + '/' + file + '_traj.png')
-    if export:
-        return plotted
-
+        plt.savefig(folder + '/' + name + '_traj.png')
+        
 #def plot_trajectory_seg():
 #    return None 
     
-def kde(pos, folder, name='', export=True, save=True):
+def kde(pos, folder, name='', save=True, **kw):
     '''
     Plots a kernel density estimate for the position data
     '''
@@ -241,41 +242,50 @@ def kde(pos, folder, name='', export=True, save=True):
     cmap = sns.cubehelix_palette(start=3, light=1, as_cmap=True)
 
     #actual plot
-    s = sns.kdeplot(pos[:,0], pos[:,1], cmap=cmap, shade=True)
+    s = sns.kdeplot(pos[:,0], pos[:,1], cmap=cmap, shade=True,ax=kw.get('ax'))
 
 
-    if not export:
-        #data 
-        plt.title(name)
-        plt.xlim(0, xlim)
-        plt.ylim(0, ylim)
-        plt.xlabel('pixels')
-        plt.ylabel('pixels')
+    plt.xlim(0, xlim)
+    plt.ylim(0, ylim)
+    plt.xlabel('pixels')
+    plt.ylabel('pixels')
 
     if save:
         plt.savefig(folder + '/' + name + '_kde.png')
-    if export:
-        return s
     
-def multiplot(pos, name):
+def multiplot(pos, folder, name, save=True, display=False):
     '''
     Plots multiple representations of position data for a single experiment
     '''
 
     [xlim, ylim] = np.nanmax(pos, axis=0)
     xlim, ylim = int(xlim) + 20, int(ylim) + 20
+
+    functions = [heatmap, plot_trajectory, kde]
     
-    f, axes = plt.subplots(3,1, figsize=(9,9), sharex=True, sharey=True)
+    f, axes = plt.subplots(1,len(functions), figsize=(9,9), sharex=True, sharey=True)
 
-    functions = [heatmap, kde, plot_trajectory]
-
-    #create grid of subplots 
-    for ax, s in zip(axes.flat, np.linspace(0,3,3)):
-        functions[s](pos, name)
+    #create grid of subplots
+    
+    for ax, s in zip(axes.flat, np.linspace(0,len(functions) - 1,len(functions))):
+        functions[int(s)](pos, folder, name, save=False, ax=ax,index=(1,len(functions),int(s) + 1))
         ax.set(xlim=(0,xlim), ylim=(0,ylim))
 
-    plt.title(name)
+        
+        
+    
     f.tight_layout
+
+    if save:
+        if folder:
+            plt.savefig(folder + '/' + name + '_a.png')
+        else:
+            plt.savefig(name + '_a.png')
+
+    if display:
+        plt.show()
+
+    
 
         
 
