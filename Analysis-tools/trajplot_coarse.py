@@ -15,10 +15,10 @@ if __name__ == '__main__':
         for video in videos:
             os.chdir(video)
             vid = video[:-8]
-            print('Calculating coarse trajectory for', vid)
+            print('Plotting coarse trajectory for', vid)
 
             pos, theta = read_data(video)
-            multiplot(pos, '', vid,save=True,display=False)
+            multiplot(pos, '', vid,save=True,display=False, stim=True, tag='s')
             
             os.chdir('..')
     

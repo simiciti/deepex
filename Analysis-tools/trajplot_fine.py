@@ -17,12 +17,12 @@ if __name__ == '__main__':
         for video in videos:
             os.chdir(video)
             vid = video[:-8]
-            print('Calculating fine trajectory for', vid)
+            print('Plotting fine trajectory for', vid)
 
             pos, theta = read_data(video)
             segmented(pos, multiplot, '', segments[vid]['segments'], vid,
                       segments[vid]['labels'], aggregate=True, verbose=True,
-                      save=True, display=False)
+                      save=True, display=False, stim=True, tag='s')
             
             #multiplot(pos, '', vid,save=True,display=False)
             

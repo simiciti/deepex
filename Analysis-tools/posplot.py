@@ -20,6 +20,10 @@ from myconfig_analysis import videofolder
 
 import seaborn as sns
 
+ACTIVE = (381, 501)
+MOVED = (858, 501)
+STIM_RADIUS=31
+
 def distance(x1, y1, x2, y2):
     '''
     Distance betweeen 2 points.
@@ -149,7 +153,19 @@ def heatmap(pos, folder, imname='', save=True, **kw):
     #transpose because it inverts the display (but not the actual graph)
     #plt.title('loc')
     im = ax.imshow(cells.T, cmap='YlGn')
-    
+    if kw.get('stim'): #add stimulus location circles
+        if kw.get('aggregate'):
+            code = imname.split(' ')[-1][0]
+            if code == 'a': #add circle for active condition
+                ax.add_patch(plt.Circle(ACTIVE, radius=STIM_RADIUS))
+            elif code == 'm': #add circle for moved condition
+                ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
+            elif code != 'i':
+                print('Code mismatch')
+                
+        else: #add location circles for both
+            ax.add_patch(plt.Circle(ACTIVE, radius=STIM_RADIUS))
+            ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
     plt.xlabel('pixels') 
     plt.ylabel('pixels')
 
@@ -170,6 +186,8 @@ def segmented(pos, function, folder, seg, name='', labels=None, **kw):
     Provides an easy interface for segmenting the position data and
     applying any properly parameterized function to the data.
     '''
+    tag = 'a' if not kw.get('tag') else kw['tag']
+    
     if kw.get('aggregate'):
         epochs = {}
         for label in labels:
@@ -186,8 +204,10 @@ def segmented(pos, function, folder, seg, name='', labels=None, **kw):
             
         for lbl in epochs.keys():
             if kw.get('verbose'):
-                print(lbl, epochs[lbl].shape())
-            function(epochs[lbl], folder, name + ' ' + lbl , kw)
+                print(lbl,epochs[lbl].shape)
+            
+            function(epochs[lbl], folder, name + ' ' + lbl , tag=tag, stim=kw.get('stim'),
+                     aggregate=kw.get('aggregate'))
     else:
          for i in range(1, len(seg) + 1):
             cur = seg[i] if i < len(seg) else None
@@ -195,28 +215,9 @@ def segmented(pos, function, folder, seg, name='', labels=None, **kw):
 
             epoch = pos[lo: cur]
             lbl = labels[i - 1] if labels else ''
-            function(epoch, folder, str(lo) + '-' + str(cur) + ' ' + lbl, kw)
+            function(epoch, folder, str(lo) + '-' + str(cur) + ' ' + lbl,
+                     tag=tag, stim=kw.get('stim'), aggregate=kw.get('aggregate'))
     
-
-'''    
-def data_to_heatmap_seg(pos, folder, seg, labels=None):
-    \'''
-    Creates heatmaps of mouse position segmented by epoch boundaries
-    contained in list seg. Saves heatmaps to folders. labels is an optional
-    list of labels for the epochs. 
-    \'''
-
-    
-    for i in range(1, len(seg)):
-        cur = seg[i]
-        lo = seg[(i - 1) * (( i - 1) > 0)] * ((i - 1) > 0)
-
-        epoch = pos[lo: cur]
-        lbl = labels[i - 1] if labels else ''
-        
-        data_to_heatmap(epoch, folder, lo + '-' + cur + ' ' + lbl)
-  '''      
-
     
 def plot_trajectory(pos, folder, name='', save=True, **kw):
     '''
@@ -235,11 +236,32 @@ def plot_trajectory(pos, folder, name='', save=True, **kw):
         #plt.subplot(131)
         ax = plt.subplot(index[0],index[1],index[2])
         plotted = plt.plot(pos[:,0],pos[:,1], alpha=opacity, linewidth=0.25)
+        if kw.get('stim'):
+            
+            if kw.get('aggregate'):
+                code = name.split(' ')[-1][0]
+                if code == 'a': #add circle for active condition
+                    ax.add_patch(plt.Circle(ACTIVE, radius=STIM_RADIUS))
+                elif code == 'm': #add circle for moved condition
+                     ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
+                elif code != 'i':
+                     print('Code mismatch')
+                
+            else: #add location circles for both
+                ax.add_patch(plt.Circle(ACTIVE, radius=STIM_RADIUS))
+                ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
         ax.set_aspect(1)
         
         
     else:
         plotted = plt.plot(pos[:,0],pos[:,1], alpha=opacity)
+        if kw.get('stim'):
+            ax = plt.gca()
+            ax.add_patch(plt.Circle(ACTIVE, radius=STIM_RADIUS))
+            ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
+        
+    
+
     #plt.title('Trajectory')
     #plt.xlim(0, xlim)
     #plt.ylim(0, ylim)
@@ -269,7 +291,21 @@ def kde(pos, folder, name='', save=True, **kw):
     plt.ylabel('pixels')
     
     s = sns.kdeplot(pos[:,0], pos[:,1], cmap=cmap, shade=True,ax=kw.get('ax'))
-    
+    if kw.get('stim'):
+        ax = kw.get('ax')
+        if kw.get('aggregate'):
+            code = name.split(' ')[-1][0]
+            if code == 'a': #add circle for active condition
+                ax.add_patch(plt.Circle(ACTIVE, radius=STIM_RADIUS))
+            elif code == 'm': #add circle for moved condition
+                ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
+            elif code != 'i':
+                print('Code mismatch')
+                
+        else: #add location circles for both
+            
+            ax.add_patch(plt.Circle(ACTIVE, radius=STIM_RADIUS))
+            ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
     #s = sns.kdeplot(pos, cmap=cmap, shade=True,ax=kw.get('ax'))
 
     
@@ -279,7 +315,7 @@ def kde(pos, folder, name='', save=True, **kw):
     if save:
         plt.savefig(folder + '/' + name + '_kde.png')
     
-def multiplot(pos, folder, name, save=True, display=False):
+def multiplot(pos, folder, name, save=True, display=False, stim=False, tag='a', **kw):
     '''
     Plots multiple representations of position data for a single experiment
     '''
@@ -288,7 +324,7 @@ def multiplot(pos, folder, name, save=True, display=False):
     xlim, ylim = int(xlim) + 20, int(ylim) + 20
 
     functions = [heatmap, plot_trajectory, kde]
-    titles = ['Kernel Density Estimate','','Trajectory']
+    titles = ['Kernel Density Estimate','Location Heatmap','Trajectory']
     
     f, axes = plt.subplots(1,len(functions), figsize=(19,6), sharex=True, sharey=True)
 
@@ -296,22 +332,18 @@ def multiplot(pos, folder, name, save=True, display=False):
     
     for ax, s in zip(axes.flat, np.linspace(0,len(functions) - 1,len(functions))):
         plt.title(titles[int(s)])
-        functions[int(s)](pos, folder, name, save=False, ax=ax,index=(1,len(functions),int(s) + 1))
+        functions[int(s)](pos, folder, name, save=False,
+            ax=ax,index=(1,len(functions),int(s) + 1), stim=stim, aggregate=kw.get('aggregate'),)
         ax.set(xlim=(0,xlim), ylim=(0,ylim))
         ax.set_aspect(1)
-        
-
-        
-        
     
     f.tight_layout(pad=1.08)
     plt.suptitle(name)
-    
     if save:
         if folder:
-            plt.savefig(folder + '/' + name + '_a.png')
+            plt.savefig(folder + '/' + name + '_{0}.png'.format(tag))
         else:
-            plt.savefig(name + '_a.png')
+            plt.savefig(name + '_{0}.png'.format(tag))
 
     if display:
         plt.show()
@@ -346,38 +378,6 @@ def bearing_sunspot(bearing, title):
 
                
                
-               
-
-    
-'''
-# This is correct, right? Hisashiburi, ne?        
-if __name__ == 'main':
-    dirs = []
-    os.chdir(videofolder)
-    videos = np.sort([fn for fn in os.listdir(os.curdir) if os.path.isdir(fn) and "temp" not in fn])
-
-    if not len(videos):
-        sys.popen('.\Extraction.py')
-        videos = np.sort([fn for fn in os.listdir(os.curdir) if os.path.isdir(fn) and "temp" not in fn])
-
-    if not len(videos):
-        print('Sorry, no position/orientation files were found')
-        exit()
-    else:
-        for vid in videos:
-            os.chdir(vid)
-            
-            print('Calculating trajectory for', vid)
-        
-            poslnk = vid + '_position.csv'
-            thetalnk = vid + '_bearing.csv'
-
-            triangles = load_triangles(poslnk, thetalnk)
-            display_triangles(triangles, vid)
-            os.chdir('..')
-    
-'''
-    
     
     
     
