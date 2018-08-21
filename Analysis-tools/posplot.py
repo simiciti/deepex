@@ -134,7 +134,6 @@ def heatmap(pos, folder, imname='', save=True, **kw):
     Converts trajectory data to pixel-based heatmap
     agnostic of whether stimulus was present or mouse was activated.
     '''
-    #plt.title('Location Heatmap')
     # Find the limits in the x and y directions; These will be the boundaries
     # of the frame 
     [xlim, ylim] = np.nanmax(pos, axis=0)
@@ -151,7 +150,6 @@ def heatmap(pos, folder, imname='', save=True, **kw):
     
     ax = kw.get('ax')
     #transpose because it inverts the display (but not the actual graph)
-    #plt.title('loc')
     im = ax.imshow(cells.T, cmap='YlGn')
     if kw.get('stim'): #add stimulus location circles
         if kw.get('aggregate'):
@@ -166,16 +164,10 @@ def heatmap(pos, folder, imname='', save=True, **kw):
         else: #add location circles for both
             ax.add_patch(plt.Circle(ACTIVE, radius=STIM_RADIUS))
             ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
+
     plt.xlabel('pixels') 
     plt.ylabel('pixels')
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    plt.colorbar(im, cax=cax)
-
-
-    #plt.xlim(0, xlim)
-    #plt.ylim(0, ylim)
+    
     plt.ylabel('Number of Occurrencs')
     
     if save:
@@ -225,10 +217,6 @@ def plot_trajectory(pos, folder, name='', save=True, **kw):
     opacity: 0.2
     
     '''
-    #plt.title('Trajectory')
-    #[xlim, ylim] = np.nanmax(pos, axis=0)
-    #xlim, ylim = int(xlim) + 20, int(ylim) + 20
-
     opacity = 0.2
     
     if kw['index']:
@@ -261,10 +249,6 @@ def plot_trajectory(pos, folder, name='', save=True, **kw):
             ax.add_patch(plt.Circle(MOVED, radius=STIM_RADIUS))
         
     
-
-    #plt.title('Trajectory')
-    #plt.xlim(0, xlim)
-    #plt.ylim(0, ylim)
     plt.xlabel('pixels')
     plt.ylabel('pixels')
         
@@ -278,10 +262,6 @@ def kde(pos, folder, name='', save=True, **kw):
     '''
     Plots a kernel density estimate for the position data
     '''
-    #plt.title('Kernel Density Estimate')
-    #[xlim, ylim] = np.nanmax(pos, axis=0)
-    #xlim, ylim = int(xlim) + 20, int(ylim) + 20
-    
     #create cubehelix colormap
     cmap = sns.cubehelix_palette(start=3, light=1, as_cmap=True)
 
@@ -324,18 +304,21 @@ def multiplot(pos, folder, name, save=True, display=False, stim=False, tag='a', 
     xlim, ylim = int(xlim) + 20, int(ylim) + 20
 
     functions = [heatmap, plot_trajectory, kde]
-    titles = ['Kernel Density Estimate','Location Heatmap','Trajectory']
+    titles = ['Location Heatmap','Trajectory', 'Kernel Density Estimate']
     
     f, axes = plt.subplots(1,len(functions), figsize=(19,6), sharex=True, sharey=True)
 
     #create grid of subplots
     
     for ax, s in zip(axes.flat, np.linspace(0,len(functions) - 1,len(functions))):
-        plt.title(titles[int(s)])
+        plt.title(titles[int(s) - 1]) #hope this is stable
         functions[int(s)](pos, folder, name, save=False,
             ax=ax,index=(1,len(functions),int(s) + 1), stim=stim, aggregate=kw.get('aggregate'),)
         ax.set(xlim=(0,xlim), ylim=(0,ylim))
+        
         ax.set_aspect(1)
+        ax.set_title(titles[int(s)]) #only alternative is sending as parameter
+        
     
     f.tight_layout(pad=1.08)
     plt.suptitle(name)
