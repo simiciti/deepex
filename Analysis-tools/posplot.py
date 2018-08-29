@@ -17,6 +17,7 @@ import numpy as np
 from myconfig import bodyparts, center_of_mass
 from myconfig_analysis import videofolder
 
+from tqdm import tqdm
 
 import seaborn as sns
 
@@ -179,7 +180,6 @@ def segmented(pos, function, folder, seg, name='', labels=None, **kw):
     applying any properly parameterized function to the data.
     '''
     tag = 'a' if not kw.get('tag') else kw['tag']
-    
     if kw.get('aggregate'):
         epochs = {}
         for label in labels:
@@ -197,9 +197,13 @@ def segmented(pos, function, folder, seg, name='', labels=None, **kw):
         for lbl in epochs.keys():
             if kw.get('verbose'):
                 print(lbl,epochs[lbl].shape)
+
+
+            
             
             function(epochs[lbl], folder, name + ' ' + lbl , tag=tag, stim=kw.get('stim'),
                      aggregate=kw.get('aggregate'))
+        
     else:
          for i in range(1, len(seg) + 1):
             cur = seg[i] if i < len(seg) else None
@@ -268,9 +272,12 @@ def kde(pos, folder, name='', save=True, **kw):
     #actual plot
 
     plt.xlabel('pixels')
-    plt.ylabel('pixels')
-    
-    s = sns.kdeplot(pos[:,0], pos[:,1], cmap=cmap, shade=True,ax=kw.get('ax'))
+    plt.ylabel('Probability Density')
+
+    ax = kw.get('ax')
+    #divider = make_axes_locatable(ax)
+    #cax = divider.append_axes('right', size='5%', pad=0.05)
+    s = sns.kdeplot(pos[:,0], pos[:,1], cmap=cmap, shade=True,ax=ax)
     if kw.get('stim'):
         ax = kw.get('ax')
         if kw.get('aggregate'):
@@ -313,7 +320,7 @@ def multiplot(pos, folder, name, save=True, display=False, stim=False, tag='a', 
     for ax, s in zip(axes.flat, np.linspace(0,len(functions) - 1,len(functions))):
         plt.title(titles[int(s) - 1]) #hope this is stable
         functions[int(s)](pos, folder, name, save=False,
-            ax=ax,index=(1,len(functions),int(s) + 1), stim=stim, aggregate=kw.get('aggregate'),)
+            ax=ax,index=(1,len(functions),int(s) + 1), stim=stim, aggregate=kw.get('aggregate'), cbar=True)
         ax.set(xlim=(0,xlim), ylim=(0,ylim))
         
         ax.set_aspect(1)
@@ -331,12 +338,75 @@ def multiplot(pos, folder, name, save=True, display=False, stim=False, tag='a', 
     if display:
         plt.show()
 
-    
 
+
+
+def time_circle(position, spot, fps=30, **kw):
+    '''
+    Calculates seconds spent in circles around spot,
+    incremented by 5px radius
+    '''
+    ranges = list(range(0, 300, 5))
+    pos_count = np.asarray([0] * len(ranges))
+
+
+    for index in tqdm(range(len(position))):
+        pos = position[index]
+        for i in range(len(ranges)):
+            if distance(pos[0], pos[1], spot[0], spot[1]) <= ranges[i]:
+                pos_count[i:] += 1
+                break
+            
+    return pos_count / 30, ranges
+                
         
 
+def tc_segmented(pos, function, folder, seg, name='', labels=None, **kw):
+    '''
+    Provides an easy interface for segmenting the position data and
+    applying any properly parameterized function to the data.
+    '''
+    tag = 'a' if not kw.get('tag') else kw['tag']
+    data = []
+    if kw.get('aggregate'):
+        epochs = {}
+        for label in labels:
+            epochs[label] = []
+            
+        for i in range(1, len(seg) + 1):
+            cur = seg[i] if i < len(seg) else None
+            lo = seg[i - 1]
 
+            if epochs[labels[i - 1]] != []:
+                epochs[labels[i - 1]] = np.concatenate((epochs[labels[i - 1]],pos[lo: cur]))
+            else:
+                epochs[labels[i - 1]] = pos[lo:cur]
+            
+        for lbl in epochs.keys():
+            if kw.get('verbose'):
+                print(lbl,epochs[lbl].shape)
+            times = []
+            circles = []
+            for spot in (ACTIVE, MOVED):
+                time, radii = time_circle(epochs[lbl], spot)
+                times.append(time)
+                circles.append(radii)
+            data.append((lbl, times, circles))
+        return data
+            
+            #function(epochs[lbl], folder, name + ' ' + lbl , tag=tag, stim=kw.get('stim'),
+            #         aggregate=kw.get('aggregate'))
+        
+    else:
+         for i in range(1, len(seg) + 1):
+            cur = seg[i] if i < len(seg) else None
+            lo = seg[i - 1]
 
+            epoch = pos[lo: cur]
+            lbl = labels[i - 1] if labels else ''
+            function(epoch, folder, str(lo) + '-' + str(cur) + ' ' + lbl,
+                     tag=tag, stim=kw.get('stim'), aggregate=kw.get('aggregate'))
+  
 #def kde_seg():
 #    return None 
 
